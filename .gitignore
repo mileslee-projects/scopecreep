@@ -1,0 +1,26 @@
+# macOS junk
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables / secrets — NEVER commit
+.env
+.env.local
+
+# Editor settings
+.vscode/
+.idea/
+
+# Build / distribution
+dist/
+*.egg-info/
+build/
