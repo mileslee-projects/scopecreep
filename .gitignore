@@ -24,3 +24,7 @@ env/
 dist/
 *.egg-info/
 build/
+
+# Generated change orders and data
+change_order_*.txt
+change_order_history.json

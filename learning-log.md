@@ -35,4 +35,22 @@ A running journal of what I learn each week and how it connects to the product.
 ### Questions for next session
 - (fill in at end of session)
 
+## Week 2 — May 25, 2026
 
+### What I learned today
+
+Functions (def, parameters, return vs print, default arguments, keyword arguments)
+Dictionaries (key-value pairs, dict["key"] access)
+How functions eliminate duplication (find_matches replaced the two copied loops)
+File writing (with open(...) as f, "w"/"r" modes)
+JSON (json.dump, json.load) for persistence
+float() to convert input strings to numbers; os.path.exists(); enumerate()
+Indentation is structure, not decoration (learned the hard way via IndentationError)
+NameError means "used a name that doesn't exist"
+
+### What I built:
+
+Refactored parser + checker into parse_sow(), find_matches(), check_scope()
+Change Order Template Engine (calculate_pricing(), create_change_order(), save_change_order())
+Unified menu-driven CLI app
+JSON persistence for change order history
