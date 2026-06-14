@@ -66,14 +66,15 @@ def parse_sow(sow_text):
 def find_matches(items, request_lower):
     """Return all items that share a significant word with the request.
     This is the matching logic we used to write twice — now it's one function."""
-    matches = []
-    for item in items:
-        for word in item.lower().split():
-            if len(word) > 3 and word in request_lower:
-                matches.append(item)
-                break
+    matches = [
+        item
+        for item in items
+        if any(
+            len(word) > 3 and word in request_lower
+            for word in item.lower().split()
+        )
+    ]
     return matches
-
 
 def check_scope(request, sow):
     """Check a client request against parsed scope.
@@ -293,3 +294,4 @@ while True:
 
     else:
         print("\nInvalid choice. Please enter 1-5.")
+   
