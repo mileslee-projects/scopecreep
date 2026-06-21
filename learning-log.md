@@ -54,3 +54,29 @@ Refactored parser + checker into parse_sow(), find_matches(), check_scope()
 Change Order Template Engine (calculate_pricing(), create_change_order(), save_change_order())
 Unified menu-driven CLI app
 JSON persistence for change order history
+
+## Week 3 — June 14, 2026 (Sunday)
+
+### What I learned today
+- Refactoring with helper functions (`detect_section`, `parse_bullet_item`) — main parser becomes a clean orchestrator
+- Lambda functions for sorting (`results.sort(key=lambda r: r["confidence"])`)
+- List comprehensions inside `any()` for filter conditions
+- How Cursor's Cmd+K (inline edit) and Cmd+L (chat) work — and the discipline of reviewing every line
+- `git diff` before every commit — always know what's being committed
+- Difference between three Claudes (Cowork tutor, Cursor's chat, Claude Code)
+
+### What I built
+- Smart SOW Parser v2: handles `-`, `*`, `•` bullets, `1.`/`2.` numbered lists, and 12+ section header variations
+- Confidence scoring: each scope match now returns a 0–100% confidence + which words matched
+- Verdict logic: highest-confidence match wins
+- Discount support in `calculate_pricing` (built via Cursor's Cmd+K)
+
+### Ideas for ScopeCreep — from Cursor's `score_match` review
+- "AI", "CMS", "UX" and other ≤3-letter scope items are silently ignored by the `len(word) > 3` filter — real scope creep slips through
+- Substring matching produces false positives: "AI" matches "email", "the" matches almost anything
+- Need word-boundary matching (regex `\b` or `.split()` comparison) instead of `in` substring check
+- Acronym handling: maintain a list of known acronyms that should match exactly even when short
+- Add "Timeline:" and "Pricing:" section parsers for completeness
+
+### Questions for next session
+- (whatever's still fuzzy for you)

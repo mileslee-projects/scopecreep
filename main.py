@@ -6,6 +6,28 @@ from datetime import date
 import json
 import os
 
+# Section header keywords — map common SOW phrasings to our two scope buckets
+SECTION_KEYWORDS = {
+    "in_scope": [
+        "deliverables",
+        "scope of work",
+        "scope",
+        "included",
+        "what's included",
+        "in scope",
+    ],
+    "out_of_scope": [
+        "out of scope",
+        "out-of-scope",
+        "excluded",
+        "exclusions",
+        "not included",
+        "what's not included",
+    ],
+}
+
+BULLET_MARKERS = "-*•"
+
 # A sample SOW for testing
 SAMPLE_SOW = """
 Project: Marketing Website Redesign
@@ -27,9 +49,45 @@ Excluded:
 
 # ===== FUNCTIONS =====
 
+def detect_section(line):
+    """Return 'in_scope', 'out_of_scope', or None based on whether the
+    line looks like a section header."""
+    line_lower = line.lower().strip().rstrip(":").strip()
+
+    # Check out_of_scope first since "scope" appears in both keyword lists
+    for keyword in SECTION_KEYWORDS["out_of_scope"]:
+        if keyword in line_lower:
+            return "out_of_scope"
+    for keyword in SECTION_KEYWORDS["in_scope"]:
+        if keyword in line_lower:
+            return "in_scope"
+    return None
+
+def parse_bullet_item(line):
+    """If the line is a bullet or numbered list item, return its content
+    (with the marker stripped). Otherwise return None."""
+    line = line.strip()
+    if not line:
+        return None
+
+    # Bullet markers: -, *, •
+    if line[0] in BULLET_MARKERS:
+        return line[1:].strip()
+
+    # Numbered: digit(s) followed by . or )
+    # E.g., "1. Homepage" or "12) About page"
+    i = 0
+    while i < len(line) and line[i].isdigit():
+        i += 1
+    if i > 0 and i < len(line) and line[i] in ".)":
+        return line[i + 1:].strip()
+
+    return None
+
 def parse_sow(sow_text):
     """Parse a scope-of-work string into structured data.
-    Returns a dict with project_name, in_scope, and out_of_scope."""
+    Returns a dict with project_name, in_scope, and out_of_scope.
+    Supports multiple bullet styles (-, *, •, 1., 2.) and section header variations."""
     project_name = ""
     in_scope = []
     out_of_scope = []
@@ -40,17 +98,22 @@ def parse_sow(sow_text):
         if line == "":
             continue
 
+        # Check for project name (handle "Project:" and "Project Name:")
         line_lower = line.lower()
-
-        if line_lower.startswith("project:"):
+        if line_lower.startswith("project:") or line_lower.startswith("project name:"):
             project_name = line.split(":", 1)[1].strip()
             current_section = None
-        elif line_lower.startswith("deliverables"):
-            current_section = "in_scope"
-        elif line_lower.startswith("excluded"):
-            current_section = "out_of_scope"
-        elif line.startswith("-"):
-            item = line.lstrip("-").strip()
+            continue
+
+        # Check for a section header
+        section = detect_section(line)
+        if section is not None:
+            current_section = section
+            continue
+
+        # Check for a list item
+        item = parse_bullet_item(line)
+        if item and current_section is not None:
             if current_section == "in_scope":
                 in_scope.append(item)
             elif current_section == "out_of_scope":
@@ -62,31 +125,63 @@ def parse_sow(sow_text):
         "out_of_scope": out_of_scope,
     }
 
+def score_match(item, request_lower):
+    """Score how confidently a scope item matches the request.
+    Returns (matched_words, confidence_percent) where confidence is 0-100.
+    100 = exact phrase match. Otherwise: proportion of significant words found."""
+    item_lower = item.lower()
 
-def find_matches(items, request_lower):
-    """Return all items that share a significant word with the request.
-    This is the matching logic we used to write twice — now it's one function."""
-    matches = [
-        item
-        for item in items
-        if any(
-            len(word) > 3 and word in request_lower
-            for word in item.lower().split()
-        )
-    ]
-    return matches
+    # Exact phrase match → 100% confidence
+    if item_lower in request_lower:
+        return [item_lower], 100
+
+    # Otherwise: score by proportion of significant words that appear
+    item_words = item_lower.split()
+    significant_words = [w for w in item_words if len(w) > 3]
+
+    if not significant_words:
+        return [], 0
+
+    matched = [w for w in significant_words if w in request_lower]
+
+    if not matched:
+        return [], 0
+
+    confidence = round((len(matched) / len(significant_words)) * 100)
+    return matched, confidence
+
+
+def score_all_matches(items, request_lower):
+    """Score every item against the request.
+    Returns a list of dicts: [{item, matched_words, confidence}, ...]
+    Only includes items with confidence > 0. Sorted highest confidence first."""
+    results = []
+    for item in items:
+        matched, confidence = score_match(item, request_lower)
+        if confidence > 0:
+            results.append({
+                "item": item,
+                "matched_words": matched,
+                "confidence": confidence,
+            })
+    results.sort(key=lambda r: r["confidence"], reverse=True)
+    return results
 
 def check_scope(request, sow):
-    """Check a client request against parsed scope.
-    Returns a dict with verdict, matched_excluded, and matched_in_scope."""
+    """Check a client request against parsed scope using confidence scoring.
+    Returns a dict with verdict and scored matches for each scope side."""
     request_lower = request.lower()
 
-    matched_excluded = find_matches(sow["out_of_scope"], request_lower)
-    matched_in_scope = find_matches(sow["in_scope"], request_lower)
+    matched_excluded = score_all_matches(sow["out_of_scope"], request_lower)
+    matched_in_scope = score_all_matches(sow["in_scope"], request_lower)
 
-    if matched_excluded:
+    # The highest-confidence match wins
+    top_excluded = matched_excluded[0]["confidence"] if matched_excluded else 0
+    top_in_scope = matched_in_scope[0]["confidence"] if matched_in_scope else 0
+
+    if top_excluded > 0 and top_excluded >= top_in_scope:
         verdict = "scope_creep"
-    elif matched_in_scope:
+    elif top_in_scope > 0:
         verdict = "in_scope"
     else:
         verdict = "unclear"
@@ -98,18 +193,21 @@ def check_scope(request, sow):
     }
 
 
-def calculate_pricing(hours, rate, is_rush=False):
+def calculate_pricing(hours, rate, is_rush=False, discount_percent=0):
     """Calculate the cost of a scope change.
-    Returns a dict with subtotal, rush_fee, and total."""
+    Returns a dict with subtotal, rush_fee, discount, and total."""
     subtotal = hours * rate
     if is_rush:
         rush_fee = subtotal * 0.5
     else:
         rush_fee = 0
-    total = subtotal + rush_fee
+    pre_discount_total = subtotal + rush_fee
+    discount = pre_discount_total * (discount_percent / 100)
+    total = pre_discount_total - discount
     return {
         "subtotal": subtotal,
         "rush_fee": rush_fee,
+        "discount": discount,
         "total": total,
     }
 
@@ -192,6 +290,7 @@ def save_history(history):
     with open(HISTORY_File, "w") as f:
         json.dump(history, f, indent=2)
 
+
 # ===== MAIN PROGRAM =====
 
 # State that persists across the menu loop
@@ -233,14 +332,18 @@ while True:
         result = check_scope(request, current_sow)
         print()
         if result["verdict"] == "scope_creep":
-            print("[!] POTENTIAL SCOPE CREEP")
-            for item in result["matched_excluded"]:
-                print(f"    - matches excluded: {item}")
+            top = result["matched_excluded"][0]
+            print(f"[!] POTENTIAL SCOPE CREEP ({top['confidence']}% confident)")
+            for match in result["matched_excluded"]:
+                words = ", ".join(match["matched_words"])
+                print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
             print("    Recommendation: create a change order (option 3).")
         elif result["verdict"] == "in_scope":
-            print("[OK] LIKELY IN SCOPE")
-            for item in result["matched_in_scope"]:
-                print(f"    - matches deliverable: {item}")
+            top = result["matched_in_scope"][0]
+            print(f"[OK] LIKELY IN SCOPE ({top['confidence']}% confident)")
+            for match in result["matched_in_scope"]:
+                words = ", ".join(match["matched_words"])
+                print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
         else:
             print("[?] UNCLEAR - ask the client to clarify.")
 

@@ -7,7 +7,10 @@ AI scope enforcement for freelancers and agencies. Watches client communications
 ## Progress
 
 - **Week 1 (May 10, 2026):** ✅ SOW Parser v1 + Scope Checker v1 (CLI, keyword matching)
-- **Week 2 (May 24, 2026):** Refactored into functions; built Change Order Engine, unified CLI menu, and JSON persistence- **Week 3–4:** Functions, smarter parsing, change order template engine
+- **Week 2 (May 24, 2026):** Refactored into functions; built Change Order Engine, unified CLI menu, and JSON persistence
+- **Week 3 (June 14, 2026):** Smart SOW Parser v2 (multi-format, header variations); confidence scoring with matched-word breakdown; Cursor-assisted discount support in pricing
+- Weeks 4–6: Pricing models (fixed/milestone), Stripe payment links, email sending
+- Weeks 7–8: OOP refactor + Flask web form
 - **Week 5–6:** Stripe payment links + client email sending
 - **Week 7–8:** Refactor to OOP + simple Flask web form
 
