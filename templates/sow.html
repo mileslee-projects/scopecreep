@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Load SOW</h1>
+<div class="card">
+  <form method="POST">
+    <label for="sow_text">Paste your Scope of Work</label>
+    <textarea id="sow_text" name="sow_text" placeholder="Paste your SOW here, or leave blank to load the sample SOW..."></textarea>
+    <button type="submit" class="btn btn-primary">Load SOW</button>
+  </form>
+</div>
+{% endblock %}

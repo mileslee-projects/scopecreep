@@ -355,196 +355,201 @@ def save_change_order(order_text, client_name):
 
 
 # ===== MAIN PROGRAM =====
+# The "if __name__ == '__main__'" guard means:
+# - Run this block when you execute: python3 main.py
+# - SKIP this block when another file does: import main
+# This lets app.py import our functions without starting the CLI loop.
 
-# State that persists across the menu loop
-current_sow = None
-change_order_history = load_history()
+if __name__ == "__main__":
+    # State that persists across the menu loop
+    current_sow = None
+    change_order_history = load_history()
 
-while True:
-    print_menu()
-    choice = input("Choose an option (1-6): ").strip()
+    while True:
+        print_menu()
+        choice = input("Choose an option (1-6): ").strip()
 
-    if choice == "1":
-        # --- Upload SOW ---
-        print("\nPress ENTER to use the sample SOW, or type 'paste' to enter your own:")
-        sub_choice = input("> ").strip().lower()
-        if sub_choice == "paste":
-            print("\nPaste your SOW. Type 'END' on a new line when finished:\n")
-            user_lines = []
-            while True:
-                line = input()
-                if line.strip().upper() == "END":
-                    break
-                user_lines.append(line)
-            sow_text = "\n".join(user_lines)
-        else:
-            sow_text = SAMPLE_SOW
-        current_sow = parse_sow(sow_text)
-        print(f"\nLoaded SOW for project: {current_sow['project_name']}")
-        print(f"  In scope: {len(current_sow['in_scope'])} items")
-        print(f"  Out of scope: {len(current_sow['out_of_scope'])} items")
+        if choice == "1":
+            # --- Upload SOW ---
+            print("\nPress ENTER to use the sample SOW, or type 'paste' to enter your own:")
+            sub_choice = input("> ").strip().lower()
+            if sub_choice == "paste":
+                print("\nPaste your SOW. Type 'END' on a new line when finished:\n")
+                user_lines = []
+                while True:
+                    line = input()
+                    if line.strip().upper() == "END":
+                        break
+                    user_lines.append(line)
+                sow_text = "\n".join(user_lines)
+            else:
+                sow_text = SAMPLE_SOW
+            current_sow = parse_sow(sow_text)
+            print(f"\nLoaded SOW for project: {current_sow['project_name']}")
+            print(f"  In scope: {len(current_sow['in_scope'])} items")
+            print(f"  Out of scope: {len(current_sow['out_of_scope'])} items")
 
-    elif choice == "2":
-        # --- Check a client request ---
-        if current_sow is None:
-            print("\nNo SOW loaded yet. Use option [1] first.")
-            continue
-        request = input("\nEnter the client request: ").strip()
-        if request == "":
-            continue
-        result = check_scope(request, current_sow)
-        print()
-        if result["verdict"] == "scope_creep":
-            top = result["matched_excluded"][0]
-            print(f"[!] POTENTIAL SCOPE CREEP ({top['confidence']}% confident)")
-            for match in result["matched_excluded"]:
-                words = ", ".join(match["matched_words"])
-                print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
-            print("    Recommendation: create a change order (option 3).")
-        elif result["verdict"] == "in_scope":
-            top = result["matched_in_scope"][0]
-            print(f"[OK] LIKELY IN SCOPE ({top['confidence']}% confident)")
-            for match in result["matched_in_scope"]:
-                words = ", ".join(match["matched_words"])
-                print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
-        else:
-            print("[?] UNCLEAR - ask the client to clarify.")
+        elif choice == "2":
+            # --- Check a client request ---
+            if current_sow is None:
+                print("\nNo SOW loaded yet. Use option [1] first.")
+                continue
+            request = input("\nEnter the client request: ").strip()
+            if request == "":
+                continue
+            result = check_scope(request, current_sow)
+            print()
+            if result["verdict"] == "scope_creep":
+                top = result["matched_excluded"][0]
+                print(f"[!] POTENTIAL SCOPE CREEP ({top['confidence']}% confident)")
+                for match in result["matched_excluded"]:
+                    words = ", ".join(match["matched_words"])
+                    print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
+                print("    Recommendation: create a change order (option 3).")
+            elif result["verdict"] == "in_scope":
+                top = result["matched_in_scope"][0]
+                print(f"[OK] LIKELY IN SCOPE ({top['confidence']}% confident)")
+                for match in result["matched_in_scope"]:
+                    words = ", ".join(match["matched_words"])
+                    print(f"    - {match['item']} ({match['confidence']}%, matched: {words})")
+            else:
+                print("[?] UNCLEAR - ask the client to clarify.")
 
-    elif choice == "3":
-        # --- Create a change order ---
-        if current_sow is None:
-            print("\nNo SOW loaded yet. Use option [1] first.")
-            continue
-        print("\n--- New Change Order ---")
-        client_name = input("Client name: ").strip()
-        client_email = input("Client email: ").strip()
-        scope_item = input("Describe the out-of-scope work: ").strip()
-        hours = float(input("Estimated hours: ").strip())
-        rate = float(input("Hourly rate: ").strip())
-        rush_input = input("Rush job? (y/n): ").strip().lower()
-        is_rush = rush_input == "y"
+        elif choice == "3":
+            # --- Create a change order ---
+            if current_sow is None:
+                print("\nNo SOW loaded yet. Use option [1] first.")
+                continue
+            print("\n--- New Change Order ---")
+            client_name = input("Client name: ").strip()
+            client_email = input("Client email: ").strip()
+            scope_item = input("Describe the out-of-scope work: ").strip()
+            hours = float(input("Estimated hours: ").strip())
+            rate = float(input("Hourly rate: ").strip())
+            rush_input = input("Rush job? (y/n): ").strip().lower()
+            is_rush = rush_input == "y"
 
-        pricing = calculate_pricing(hours, rate, is_rush)
+            pricing = calculate_pricing(hours, rate, is_rush)
 
-        order = create_change_order(
-            client_name=client_name,
-            project_name=current_sow["project_name"],
-            scope_item=scope_item,
-            hours=hours,
-            rate=rate,
-            is_rush=is_rush,
-        )
-        print(order)
-        filename = save_change_order(order, client_name)
-        print(f"Saved to: {filename}")
+            order = create_change_order(
+                client_name=client_name,
+                project_name=current_sow["project_name"],
+                scope_item=scope_item,
+                hours=hours,
+                rate=rate,
+                is_rush=is_rush,
+            )
+            print(order)
+            filename = save_change_order(order, client_name)
+            print(f"Saved to: {filename}")
 
-        # Generate Stripe payment link
-        print("\nGenerating payment link...", end=" ")
-        payment_link = create_stripe_payment_link(pricing["total"], scope_item)
-        if payment_link:
-            print(f"Done.\n  {payment_link}")
-        else:
-            print("Skipped (no payment link).")
+            # Generate Stripe payment link
+            print("\nGenerating payment link...", end=" ")
+            payment_link = create_stripe_payment_link(pricing["total"], scope_item)
+            if payment_link:
+                print(f"Done.\n  {payment_link}")
+            else:
+                print("Skipped (no payment link).")
 
-        # Send email
-        print("Sending email to client...", end=" ")
-        sent = send_change_order_email(
-            client_email=client_email,
-            client_name=client_name,
-            project_name=current_sow["project_name"],
-            scope_item=scope_item,
-            total=pricing["total"],
-            payment_link=payment_link,
-        )
-        if sent:
-            print(f"Sent to {client_email}.")
-        else:
-            print("Failed — check your SendGrid key and verified sender.")
+            # Send email
+            print("Sending email to client...", end=" ")
+            sent = send_change_order_email(
+                client_email=client_email,
+                client_name=client_name,
+                project_name=current_sow["project_name"],
+                scope_item=scope_item,
+                total=pricing["total"],
+                payment_link=payment_link,
+            )
+            if sent:
+                print(f"Sent to {client_email}.")
+            else:
+                print("Failed — check your SendGrid key and verified sender.")
 
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        change_order_history.append({
-            "id": len(change_order_history) + 1,
-            "client_name": client_name,
-            "client_email": client_email,
-            "scope_item": scope_item,
-            "total": pricing["total"],
-            "filename": filename,
-            "payment_link": payment_link,
-            "status": "pending",
-            "created_at": now_str,
-            "status_updated_at": now_str,
-        })
-        save_history(change_order_history)
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            change_order_history.append({
+                "id": len(change_order_history) + 1,
+                "client_name": client_name,
+                "client_email": client_email,
+                "scope_item": scope_item,
+                "total": pricing["total"],
+                "filename": filename,
+                "payment_link": payment_link,
+                "status": "pending",
+                "created_at": now_str,
+                "status_updated_at": now_str,
+            })
+            save_history(change_order_history)
 
-    elif choice == "4":
-        # --- View change order history ---
-        if not change_order_history:
-            print("\nNo change orders created yet.")
-        else:
-            print(f"\n--- Change Order History ({len(change_order_history)}) ---")
+        elif choice == "4":
+            # --- View change order history ---
+            if not change_order_history:
+                print("\nNo change orders created yet.")
+            else:
+                print(f"\n--- Change Order History ({len(change_order_history)}) ---")
+                for order in change_order_history:
+                    order_id = order.get("id", "?")
+                    status = order.get("status", "pending").upper()
+                    created = order.get("created_at", "unknown")
+                    status_updated = order.get("status_updated_at", created)
+                    client = order.get("client_name", "Unknown Client")
+                    scope_item = order.get("scope_item", "")
+                    total = order.get("total", 0.0)
+                    filename = order.get("filename", "")
+                    print(f"#{order_id} [{status}] {client} — {scope_item}")
+                    print(f"Total: ${total:.2f}  |  Created: {created}  |  File: {filename}")
+                    if status_updated != created or created == "unknown":
+                        print(f"Status changed: {status} at {status_updated}")
+
+        elif choice == "5":
+            # --- Update change order status ---
+            if not change_order_history:
+                print("No change orders yet.")
+                continue
+            print("\n--- Update Change Order Status ---")
             for order in change_order_history:
-                order_id = order.get("id", "?")
+                oid = order.get("id", "?")
                 status = order.get("status", "pending").upper()
-                created = order.get("created_at", "unknown")
-                status_updated = order.get("status_updated_at", created)
                 client = order.get("client_name", "Unknown Client")
-                scope_item = order.get("scope_item", "")
-                total = order.get("total", 0.0)
-                filename = order.get("filename", "")
-                print(f"#{order_id} [{status}] {client} — {scope_item}")
-                print(f"Total: ${total:.2f}  |  Created: {created}  |  File: {filename}")
-                if status_updated != created or created == "unknown":
-                    print(f"Status changed: {status} at {status_updated}")
+                print(f"{oid}: [{status}] {client}")
 
-    elif choice == "5":
-        # --- Update change order status ---
-        if not change_order_history:
-            print("No change orders yet.")
-            continue
-        print("\n--- Update Change Order Status ---")
-        for order in change_order_history:
-            oid = order.get("id", "?")
-            status = order.get("status", "pending").upper()
-            client = order.get("client_name", "Unknown Client")
-            print(f"{oid}: [{status}] {client}")
+            try:
+                id_str = input("Enter change order id to update: ").strip()
+                update_id = int(id_str)
+            except ValueError:
+                print("Invalid id. Please enter a numeric id.")
+                continue
 
-        try:
-            id_str = input("Enter change order id to update: ").strip()
-            update_id = int(id_str)
-        except ValueError:
-            print("Invalid id. Please enter a numeric id.")
-            continue
+            match = None
+            for order in change_order_history:
+                if order.get("id") == update_id:
+                    match = order
+                    break
+            if match is None:
+                print(f"No change order with id {update_id}")
+                continue
 
-        match = None
-        for order in change_order_history:
-            if order.get("id") == update_id:
-                match = order
-                break
-        if match is None:
-            print(f"No change order with id {update_id}")
-            continue
+            while True:
+                new_status = input("Enter new status (pending/approved/declined/paid), or 'cancel' to abort: ").strip().lower()
+                if new_status == "cancel":
+                    print("Cancelled.")
+                    break
+                if new_status in VALID_STATUSES:
+                    break
+                print("Invalid status. Valid: pending/approved/declined/paid.")
 
-        while True:
-            new_status = input("Enter new status (pending/approved/declined/paid), or 'cancel' to abort: ").strip().lower()
             if new_status == "cancel":
-                print("Cancelled.")
-                break
-            if new_status in VALID_STATUSES:
-                break
-            print("Invalid status. Valid: pending/approved/declined/paid.")
+                continue
 
-        if new_status == "cancel":
-            continue
+            match["status"] = new_status
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            match["status_updated_at"] = now_str
+            save_history(change_order_history)
+            print(f"Updated change order #{update_id} to {new_status.upper()} at {now_str}")
 
-        match["status"] = new_status
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        match["status_updated_at"] = now_str
-        save_history(change_order_history)
-        print(f"Updated change order #{update_id} to {new_status.upper()} at {now_str}")
+        elif choice == "6":
+            print("\nGoodbye!")
+            break
 
-    elif choice == "6":
-        print("\nGoodbye!")
-        break
-
-    else:
-        print("\nInvalid choice. Please enter 1-6.")
+        else:
+            print("\nInvalid choice. Please enter 1-6.")

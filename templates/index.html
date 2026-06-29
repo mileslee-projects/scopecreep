@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% if not history %}
+  <div class="card">
+    <p class="muted">No change orders yet. <a href="/sow">Load a SOW</a> to get started.</p>
+  </div>
+{% else %}
+  {% for order in history | reverse %}
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <strong>{{ order.client_name }}</strong>
+        <span class="muted"> — {{ order.scope_item }}</span>
+      </div>
+      {% set status = order.status | default('pending') %}
+      <span class="badge badge-{{ status }}">{{ status.upper() }}</span>
+    </div>
+    <div style="margin-top:12px;" class="muted">
+      ${{ "%.2f"|format(order.total) }}
+      &nbsp;·&nbsp; {{ order.created_at }}
+      {% if order.payment_link %}
+        &nbsp;·&nbsp; <a href="{{ order.payment_link }}" target="_blank">Payment link ↗</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div style="margin-top:24px;">
+  <a href="/new-order" class="btn btn-primary">+ New Change Order</a>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Check Client Request</h1>
+<div class="card">
+  <p class="muted" style="margin-bottom:16px;">SOW loaded: <strong>{{ sow.project_name }}</strong></p>
+  <form method="POST">
+    <label for="client_request">Client's request</label>
+    <input type="text" id="client_request" name="client_request" value="{{ client_request }}" placeholder="e.g. Can you add a blog to the site?" autofocus>
+    <button type="submit" class="btn btn-primary">Check Scope</button>
+  </form>
+
+  {% if result %}
+    {% if result.verdict == "scope_creep" %}
+      <div class="verdict-creep">
+        <strong>⚠️ Potential Scope Creep</strong>
+        {% for match in result.matched_excluded %}
+          <p style="margin-top:8px;" class="muted">{{ match.item }} — {{ match.confidence }}% confident (matched: {{ match.matched_words | join(", ") }})</p>
+        {% endfor %}
+        <div style="margin-top:16px;">
+          <a href="/new-order?scope_item={{ client_request | urlencode }}" class="btn btn-primary">Create Change Order →</a>
+        </div>
+      </div>
+    {% elif result.verdict == "in_scope" %}
+      <div class="verdict-ok">
+        <strong>✓ Likely In Scope</strong>
+        {% for match in result.matched_in_scope %}
+          <p style="margin-top:8px;" class="muted">{{ match.item }} — {{ match.confidence }}% confident (matched: {{ match.matched_words | join(", ") }})</p>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="verdict-unclear">
+        <strong>? Unclear</strong>
+        <p style="margin-top:8px;" class="muted">Ask the client to clarify what they mean.</p>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

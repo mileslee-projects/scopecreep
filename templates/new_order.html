@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New Change Order</h1>
+<div class="card">
+  <p class="muted" style="margin-bottom:16px;">Project: <strong>{{ sow.project_name }}</strong></p>
+  <form method="POST">
+    <div class="row">
+      <div>
+        <label for="client_name">Client name</label>
+        <input type="text" id="client_name" name="client_name" placeholder="Acme Corp" required>
+      </div>
+      <div>
+        <label for="client_email">Client email</label>
+        <input type="email" id="client_email" name="client_email" placeholder="client@example.com" required>
+      </div>
+    </div>
+
+    <label for="scope_item">Out-of-scope work</label>
+    <input type="text" id="scope_item" name="scope_item" value="{{ scope_item }}" placeholder="e.g. Add a blog section to the site" required>
+
+    <div class="row">
+      <div>
+        <label for="hours">Estimated hours</label>
+        <input type="number" id="hours" name="hours" min="0.5" step="0.5" placeholder="10" required>
+      </div>
+      <div>
+        <label for="rate">Hourly rate ($)</label>
+        <input type="number" id="rate" name="rate" min="1" step="1" placeholder="150" required>
+      </div>
+    </div>
+
+    <label>
+      <input type="checkbox" name="is_rush"> Rush job (adds 50% fee)
+    </label>
+    <div style="margin-top:20px;">
+      <button type="submit" class="btn btn-primary">Send Change Order</button>
+      <a href="/" class="btn btn-secondary" style="margin-left:8px;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
