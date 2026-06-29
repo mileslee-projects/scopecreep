@@ -2,9 +2,24 @@
 # Organized into functions: parse_sow, find_matches, check_scope,
 # calculate_pricing, create_change_order
 
-from datetime import date
+from datetime import date, datetime
 import json
 import os
+import stripe
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY
+
+stripe.api_key = STRIPE_SECRET_KEY
+
+
+# ===== CONSTANTS =====
+
+HISTORY_FILE = "change_order_history.json"
+
+VALID_STATUSES = ["pending", "approved", "declined", "paid"]
+
+BULLET_MARKERS = "-*•"
 
 # Section header keywords — map common SOW phrasings to our two scope buckets
 SECTION_KEYWORDS = {
@@ -26,8 +41,6 @@ SECTION_KEYWORDS = {
     ],
 }
 
-BULLET_MARKERS = "-*•"
-
 # A sample SOW for testing
 SAMPLE_SOW = """
 Project: Marketing Website Redesign
@@ -48,6 +61,33 @@ Excluded:
 
 
 # ===== FUNCTIONS =====
+
+def load_history():
+    """Load change order history from the JSON file.
+    Returns an empty list if the file doesn't exist yet."""
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_history(history):
+    """Save the change order history list to the JSON file."""
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+def print_menu():
+    """Display the main menu."""
+    print()
+    print("=" * 40)
+    print("  SCOPECREEP")
+    print("=" * 40)
+    print("  [1] Upload SOW")
+    print("  [2] Check a client request")
+    print("  [3] Create a change order")
+    print("  [4] View change order history")
+    print("  [5] Update change order status")
+    print("  [6] Quit")
+    print("=" * 40)
 
 def detect_section(line):
     """Return 'in_scope', 'out_of_scope', or None based on whether the
@@ -150,7 +190,6 @@ def score_match(item, request_lower):
     confidence = round((len(matched) / len(significant_words)) * 100)
     return matched, confidence
 
-
 def score_all_matches(items, request_lower):
     """Score every item against the request.
     Returns a list of dicts: [{item, matched_words, confidence}, ...]
@@ -192,7 +231,6 @@ def check_scope(request, sow):
         "matched_in_scope": matched_in_scope,
     }
 
-
 def calculate_pricing(hours, rate, is_rush=False, discount_percent=0):
     """Calculate the cost of a scope change.
     Returns a dict with subtotal, rush_fee, discount, and total."""
@@ -210,7 +248,6 @@ def calculate_pricing(hours, rate, is_rush=False, discount_percent=0):
         "discount": discount,
         "total": total,
     }
-
 
 def create_change_order(client_name, project_name, scope_item, hours, rate, is_rush=False):
     """Generate a professional change order document as a formatted string."""
@@ -253,6 +290,59 @@ Please approve before work begins.
 ========================================
 """
     return order
+
+def create_stripe_payment_link(amount, description):
+    """Create a Stripe payment link for the given dollar amount.
+    Returns the URL string, or None if it fails."""
+    try:
+        product = stripe.Product.create(name=description)
+        price = stripe.Price.create(
+            product=product.id,
+            unit_amount=int(amount * 100),  # Stripe uses cents
+            currency="usd",
+        )
+        link = stripe.PaymentLink.create(
+            line_items=[{"price": price.id, "quantity": 1}]
+        )
+        return link.url
+    except Exception as e:
+        print(f"  [Warning] Could not create Stripe payment link: {e}")
+        return None
+
+def send_change_order_email(client_email, client_name, project_name, scope_item, total, payment_link):
+    """Send a change order email to the client via SendGrid.
+    Returns True if sent successfully, False otherwise."""
+    subject = f"Change Order Request — {project_name}"
+
+    pay_button = f'<a href="{payment_link}" style="background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Approve & Pay ${total:,.2f}</a>' if payment_link else f"<p>Total due: ${total:,.2f}</p>"
+
+    html = f"""
+    <p>Hi {client_name},</p>
+    <p>The following work falls outside the original scope of our agreement and requires a change order:</p>
+    <blockquote style="border-left:4px solid #e5e7eb;padding-left:16px;color:#374151;">
+        {scope_item}
+    </blockquote>
+    <p><strong>Total: ${total:,.2f}</strong></p>
+    <p>Please approve and pay to proceed:</p>
+    <p>{pay_button}</p>
+    <p>Reply to this email if you'd like to discuss.</p>
+    <p>— Miles</p>
+    """
+
+    try:
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=client_email,
+            subject=subject,
+            html_content=html,
+        )
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg.send(message)
+        return True
+    except Exception as e:
+        print(f"  [Warning] Could not send email: {e}")
+        return False
+
 def save_change_order(order_text, client_name):
     """Save a change order to a .txt file named after the client and date.
     Returns the filename."""
@@ -262,33 +352,6 @@ def save_change_order(order_text, client_name):
     with open(filename, "w") as f:
         f.write(order_text)
     return filename
-def print_menu():
-    """Display the main menu."""
-    print()
-    print("=" * 40)
-    print("  SCOPECREEP")
-    print("=" * 40)
-    print("  [1] Upload SOW")
-    print("  [2] Check a client request")
-    print("  [3] Create a change order")
-    print("  [4] View change order history")
-    print("  [5] Quit")
-    print("=" * 40)
-
-HISTORY_File = "change_order_history.json"
-
-def load_history():
-    """Load change order history from the JSON file.
-    Returns an empty list if the file doesn't exist yet."""
-    if os.path.exists(HISTORY_File):
-        with open(HISTORY_File, "r") as f:
-            return json.load(f)
-    return []
-
-def save_history(history):
-    """Save the change order history list to the JSON file."""
-    with open(HISTORY_File, "w") as f:
-        json.dump(history, f, indent=2)
 
 
 # ===== MAIN PROGRAM =====
@@ -299,7 +362,7 @@ change_order_history = load_history()
 
 while True:
     print_menu()
-    choice = input("Choose an option (1-5): ").strip()
+    choice = input("Choose an option (1-6): ").strip()
 
     if choice == "1":
         # --- Upload SOW ---
@@ -354,11 +417,14 @@ while True:
             continue
         print("\n--- New Change Order ---")
         client_name = input("Client name: ").strip()
+        client_email = input("Client email: ").strip()
         scope_item = input("Describe the out-of-scope work: ").strip()
         hours = float(input("Estimated hours: ").strip())
         rate = float(input("Hourly rate: ").strip())
         rush_input = input("Rush job? (y/n): ").strip().lower()
         is_rush = rush_input == "y"
+
+        pricing = calculate_pricing(hours, rate, is_rush)
 
         order = create_change_order(
             client_name=client_name,
@@ -372,12 +438,41 @@ while True:
         filename = save_change_order(order, client_name)
         print(f"Saved to: {filename}")
 
-        pricing = calculate_pricing(hours, rate, is_rush)
+        # Generate Stripe payment link
+        print("\nGenerating payment link...", end=" ")
+        payment_link = create_stripe_payment_link(pricing["total"], scope_item)
+        if payment_link:
+            print(f"Done.\n  {payment_link}")
+        else:
+            print("Skipped (no payment link).")
+
+        # Send email
+        print("Sending email to client...", end=" ")
+        sent = send_change_order_email(
+            client_email=client_email,
+            client_name=client_name,
+            project_name=current_sow["project_name"],
+            scope_item=scope_item,
+            total=pricing["total"],
+            payment_link=payment_link,
+        )
+        if sent:
+            print(f"Sent to {client_email}.")
+        else:
+            print("Failed — check your SendGrid key and verified sender.")
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         change_order_history.append({
+            "id": len(change_order_history) + 1,
             "client_name": client_name,
+            "client_email": client_email,
             "scope_item": scope_item,
             "total": pricing["total"],
             "filename": filename,
+            "payment_link": payment_link,
+            "status": "pending",
+            "created_at": now_str,
+            "status_updated_at": now_str,
         })
         save_history(change_order_history)
 
@@ -387,14 +482,69 @@ while True:
             print("\nNo change orders created yet.")
         else:
             print(f"\n--- Change Order History ({len(change_order_history)}) ---")
-            for i, order in enumerate(change_order_history, start=1):
-                print(f"{i}. {order['client_name']} - {order['scope_item']}")
-                print(f"   Total: ${order['total']:.2f}  |  File: {order['filename']}")
+            for order in change_order_history:
+                order_id = order.get("id", "?")
+                status = order.get("status", "pending").upper()
+                created = order.get("created_at", "unknown")
+                status_updated = order.get("status_updated_at", created)
+                client = order.get("client_name", "Unknown Client")
+                scope_item = order.get("scope_item", "")
+                total = order.get("total", 0.0)
+                filename = order.get("filename", "")
+                print(f"#{order_id} [{status}] {client} — {scope_item}")
+                print(f"Total: ${total:.2f}  |  Created: {created}  |  File: {filename}")
+                if status_updated != created or created == "unknown":
+                    print(f"Status changed: {status} at {status_updated}")
 
     elif choice == "5":
+        # --- Update change order status ---
+        if not change_order_history:
+            print("No change orders yet.")
+            continue
+        print("\n--- Update Change Order Status ---")
+        for order in change_order_history:
+            oid = order.get("id", "?")
+            status = order.get("status", "pending").upper()
+            client = order.get("client_name", "Unknown Client")
+            print(f"{oid}: [{status}] {client}")
+
+        try:
+            id_str = input("Enter change order id to update: ").strip()
+            update_id = int(id_str)
+        except ValueError:
+            print("Invalid id. Please enter a numeric id.")
+            continue
+
+        match = None
+        for order in change_order_history:
+            if order.get("id") == update_id:
+                match = order
+                break
+        if match is None:
+            print(f"No change order with id {update_id}")
+            continue
+
+        while True:
+            new_status = input("Enter new status (pending/approved/declined/paid), or 'cancel' to abort: ").strip().lower()
+            if new_status == "cancel":
+                print("Cancelled.")
+                break
+            if new_status in VALID_STATUSES:
+                break
+            print("Invalid status. Valid: pending/approved/declined/paid.")
+
+        if new_status == "cancel":
+            continue
+
+        match["status"] = new_status
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+        match["status_updated_at"] = now_str
+        save_history(change_order_history)
+        print(f"Updated change order #{update_id} to {new_status.upper()} at {now_str}")
+
+    elif choice == "6":
         print("\nGoodbye!")
         break
 
     else:
-        print("\nInvalid choice. Please enter 1-5.")
-   
+        print("\nInvalid choice. Please enter 1-6.")
