@@ -16,6 +16,10 @@ env/
 .env
 .env.local
 
+# Google OAuth token — contains your login credentials
+token.json
+credentials.json
+
 # Editor settings
 .vscode/
 .idea/

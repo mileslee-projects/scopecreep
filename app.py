@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 
 from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY
+from gmail_reader import fetch_recent_emails
 from main import (
     parse_sow, check_scope, calculate_pricing,
     create_change_order, save_change_order,
@@ -112,6 +113,33 @@ def new_order():
 
     scope_item = request.args.get("scope_item", "")
     return render_template("new_order.html", sow=sow_data, scope_item=scope_item)
+
+
+@app.route("/gmail")
+def gmail():
+    sow_data = session.get("sow")
+    if not sow_data:
+        flash("Load a SOW first.")
+        return redirect(url_for("sow"))
+
+    try:
+        emails = fetch_recent_emails()
+    except Exception as e:
+        flash(f"Gmail error: {e}")
+        return redirect(url_for("index"))
+
+    # Run scope check on every email body
+    flagged = []
+    for email in emails:
+        text = email["subject"] + " " + email["body"]
+        result = check_scope(text, sow_data)
+        if result["verdict"] == "scope_creep":
+            flagged.append({
+                "email": email,
+                "matches": result["matched_excluded"],
+            })
+
+    return render_template("gmail.html", flagged=flagged, total_scanned=len(emails))
 
 
 if __name__ == "__main__":
