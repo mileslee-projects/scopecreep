@@ -14,7 +14,7 @@ stripe.api_key = STRIPE_SECRET_KEY
 
 
 # ===== CONSTANTS =====
-
+ 
 HISTORY_FILE = "change_order_history.json"
 
 VALID_STATUSES = ["pending", "approved", "declined", "paid"]
@@ -291,6 +291,17 @@ Please approve before work begins.
 """
     return order
 
+def save_change_order(order_text, client_name):
+    """Save a change order to a .txt file named after the client and date.
+    Returns the filename."""
+    today = date.today().strftime("%Y-%m-%d")
+    safe_client = client_name.lower().replace(" ", "_")
+    filename = f"change_order_{safe_client}_{today}.txt"
+    with open(filename, "w") as f:
+        f.write(order_text)
+    return filename
+
+
 def create_stripe_payment_link(amount, description):
     """Create a Stripe payment link for the given dollar amount.
     Returns the URL string, or None if it fails."""
@@ -298,7 +309,7 @@ def create_stripe_payment_link(amount, description):
         product = stripe.Product.create(name=description)
         price = stripe.Price.create(
             product=product.id,
-            unit_amount=int(amount * 100),  # Stripe uses cents
+            unit_amount=int(amount * 100),
             currency="usd",
         )
         link = stripe.PaymentLink.create(
@@ -308,6 +319,7 @@ def create_stripe_payment_link(amount, description):
     except Exception as e:
         print(f"  [Warning] Could not create Stripe payment link: {e}")
         return None
+
 
 def send_change_order_email(client_email, client_name, project_name, scope_item, total, payment_link):
     """Send a change order email to the client via SendGrid.
@@ -343,25 +355,12 @@ def send_change_order_email(client_email, client_name, project_name, scope_item,
         print(f"  [Warning] Could not send email: {e}")
         return False
 
-def save_change_order(order_text, client_name):
-    """Save a change order to a .txt file named after the client and date.
-    Returns the filename."""
-    today = date.today().strftime("%Y-%m-%d")
-    safe_client = client_name.lower().replace(" ", "_")
-    filename = f"change_order_{safe_client}_{today}.txt"
-    with open(filename, "w") as f:
-        f.write(order_text)
-    return filename
-
 
 # ===== MAIN PROGRAM =====
-# The "if __name__ == '__main__'" guard means:
-# - Run this block when you execute: python3 main.py
-# - SKIP this block when another file does: import main
-# This lets app.py import our functions without starting the CLI loop.
+# Guard: only run the CLI when executing main.py directly.
+# When app.py does "import main", this block is skipped entirely.
 
 if __name__ == "__main__":
-    # State that persists across the menu loop
     current_sow = None
     change_order_history = load_history()
 
@@ -422,14 +421,11 @@ if __name__ == "__main__":
                 continue
             print("\n--- New Change Order ---")
             client_name = input("Client name: ").strip()
-            client_email = input("Client email: ").strip()
             scope_item = input("Describe the out-of-scope work: ").strip()
             hours = float(input("Estimated hours: ").strip())
             rate = float(input("Hourly rate: ").strip())
             rush_input = input("Rush job? (y/n): ").strip().lower()
             is_rush = rush_input == "y"
-
-            pricing = calculate_pricing(hours, rate, is_rush)
 
             order = create_change_order(
                 client_name=client_name,
@@ -443,38 +439,14 @@ if __name__ == "__main__":
             filename = save_change_order(order, client_name)
             print(f"Saved to: {filename}")
 
-            # Generate Stripe payment link
-            print("\nGenerating payment link...", end=" ")
-            payment_link = create_stripe_payment_link(pricing["total"], scope_item)
-            if payment_link:
-                print(f"Done.\n  {payment_link}")
-            else:
-                print("Skipped (no payment link).")
-
-            # Send email
-            print("Sending email to client...", end=" ")
-            sent = send_change_order_email(
-                client_email=client_email,
-                client_name=client_name,
-                project_name=current_sow["project_name"],
-                scope_item=scope_item,
-                total=pricing["total"],
-                payment_link=payment_link,
-            )
-            if sent:
-                print(f"Sent to {client_email}.")
-            else:
-                print("Failed — check your SendGrid key and verified sender.")
-
+            pricing = calculate_pricing(hours, rate, is_rush)
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
             change_order_history.append({
                 "id": len(change_order_history) + 1,
                 "client_name": client_name,
-                "client_email": client_email,
                 "scope_item": scope_item,
                 "total": pricing["total"],
                 "filename": filename,
-                "payment_link": payment_link,
                 "status": "pending",
                 "created_at": now_str,
                 "status_updated_at": now_str,
