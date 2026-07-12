@@ -8,6 +8,7 @@ import os
 
 from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY
 from gmail_reader import fetch_recent_emails
+from claude_checker import check_scope_with_claude
 from main import (
     parse_sow, check_scope, calculate_pricing,
     create_change_order, save_change_order,
@@ -56,7 +57,7 @@ def check():
     if request.method == "POST":
         client_request = request.form.get("client_request", "").strip()
         if client_request:
-            result = check_scope(client_request, sow_data)
+            result = check_scope_with_claude(client_request, sow_data)
 
     return render_template("check.html", sow=sow_data, result=result, client_request=client_request)
 
@@ -132,7 +133,7 @@ def gmail():
     flagged = []
     for email in emails:
         text = email["subject"] + " " + email["body"]
-        result = check_scope(text, sow_data)
+        result = check_scope_with_claude(text, sow_data)
         if result["verdict"] == "scope_creep":
             flagged.append({
                 "email": email,

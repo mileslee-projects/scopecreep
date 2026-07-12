@@ -9,3 +9,4 @@ load_dotenv()  # reads .env file and puts variables into os.environ
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
