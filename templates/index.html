@@ -17,12 +17,17 @@
       {% set status = order.status | default('pending') %}
       <span class="badge badge-{{ status }}">{{ status.upper() }}</span>
     </div>
-    <div style="margin-top:12px;" class="muted">
-      ${{ "%.2f"|format(order.total) }}
-      &nbsp;·&nbsp; {{ order.created_at }}
-      {% if order.payment_link %}
-        &nbsp;·&nbsp; <a href="{{ order.payment_link }}" target="_blank">Payment link ↗</a>
-      {% endif %}
+    <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+      <span class="muted">
+        ${{ "%.2f"|format(order.total) }}
+        &nbsp;·&nbsp; {{ order.created_at }}
+        {% if order.payment_link %}
+          &nbsp;·&nbsp; <a href="{{ order.payment_link }}" target="_blank">Payment link ↗</a>
+        {% endif %}
+      </span>
+      <form method="POST" action="/delete-order/{{ order.id }}" onsubmit="return confirm('Delete this change order?')">
+        <button type="submit" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px; padding:0;">Delete</button>
+      </form>
     </div>
   </div>
   {% endfor %}

@@ -1,37 +1,79 @@
 # app.py — ScopeCreep Flask Web App
 # Run with: python3 app.py
-# Then open: http://localhost:5000
+# Then open: http://127.0.0.1:5000
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_bcrypt import Bcrypt
 from datetime import datetime
 import os
 
-from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY
+from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY, SECRET_KEY
+from models import db, User, ChangeOrder
 from gmail_reader import fetch_recent_emails
 from claude_checker import check_scope_with_claude
 from main import (
-    parse_sow, check_scope, calculate_pricing,
+    parse_sow, calculate_pricing,
     create_change_order, save_change_order,
     create_stripe_payment_link, send_change_order_email,
-    load_history, save_history, SAMPLE_SOW,
+    SAMPLE_SOW,
 )
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # needed to encrypt session cookies
+app.secret_key = SECRET_KEY
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///scopecreep.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+bcrypt = Bcrypt(app)
+
+login_manager = LoginManager(app)
+login_manager.login_view = "login"  # redirect here if @login_required fails
+login_manager.login_message = "Please log in to continue."
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 
-# ===== ROUTES =====
+# ===== AUTH ROUTES =====
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email    = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        user = User.query.filter_by(email=email).first()
+        if user and bcrypt.check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for("index"))
+        flash("Invalid email or password.")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
+# ===== APP ROUTES =====
 
 @app.route("/")
+@login_required
 def index():
-    history = load_history()
+    orders = ChangeOrder.query.filter_by(user_id=current_user.id)\
+                              .order_by(ChangeOrder.created_at.desc()).all()
+    history = [o.to_dict() for o in orders]
     return render_template("index.html", history=history)
 
 
 @app.route("/sow", methods=["GET", "POST"])
+@login_required
 def sow():
-    # GET  → show the form
-    # POST → parse the submitted SOW, store in session, redirect to dashboard
     if request.method == "POST":
         sow_text = request.form.get("sow_text", "").strip()
         if sow_text == "":
@@ -44,9 +86,8 @@ def sow():
 
 
 @app.route("/check", methods=["GET", "POST"])
+@login_required
 def check():
-    # GET  → show the form (requires SOW in session)
-    # POST → run scope check, show result on same page
     sow_data = session.get("sow")
     if not sow_data:
         flash("Load a SOW first.")
@@ -63,9 +104,8 @@ def check():
 
 
 @app.route("/new-order", methods=["GET", "POST"])
+@login_required
 def new_order():
-    # GET  → show the form (requires SOW in session)
-    # POST → create change order, generate payment link, send email, save to history
     sow_data = session.get("sow")
     if not sow_data:
         flash("Load a SOW first.")
@@ -93,21 +133,20 @@ def new_order():
             payment_link=payment_link,
         )
 
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        history = load_history()
-        history.append({
-            "id": len(history) + 1,
-            "client_name": client_name,
-            "client_email": client_email,
-            "scope_item": scope_item,
-            "total": pricing["total"],
-            "filename": filename,
-            "payment_link": payment_link,
-            "status": "pending",
-            "created_at": now_str,
-            "status_updated_at": now_str,
-        })
-        save_history(history)
+        order = ChangeOrder(
+            user_id      = current_user.id,
+            client_name  = client_name,
+            client_email = client_email,
+            scope_item   = scope_item,
+            total        = pricing["total"],
+            filename     = filename,
+            payment_link = payment_link,
+            status       = "pending",
+            created_at   = datetime.utcnow(),
+            status_updated_at = datetime.utcnow(),
+        )
+        db.session.add(order)
+        db.session.commit()
 
         flash(f"Change order sent to {client_email}.")
         return redirect(url_for("index"))
@@ -116,7 +155,19 @@ def new_order():
     return render_template("new_order.html", sow=sow_data, scope_item=scope_item)
 
 
+@app.route("/delete-order/<int:order_id>", methods=["POST"])
+@login_required
+def delete_order(order_id):
+    order = ChangeOrder.query.filter_by(id=order_id, user_id=current_user.id).first()
+    if order:
+        db.session.delete(order)
+        db.session.commit()
+        flash("Change order deleted.")
+    return redirect(url_for("index"))
+
+
 @app.route("/gmail")
+@login_required
 def gmail():
     sow_data = session.get("sow")
     if not sow_data:
@@ -129,7 +180,6 @@ def gmail():
         flash(f"Gmail error: {e}")
         return redirect(url_for("index"))
 
-    # Run scope check on every email body
     flagged = []
     for email in emails:
         text = email["subject"] + " " + email["body"]
@@ -144,4 +194,6 @@ def gmail():
 
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()  # creates scopecreep.db if it doesn't exist
     app.run(debug=True)
