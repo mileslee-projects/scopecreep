@@ -1,0 +1,13 @@
+flask
+flask-sqlalchemy
+flask-login
+flask-bcrypt
+stripe
+sendgrid
+anthropic
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+python-dotenv
+gunicorn
+psycopg2-binary

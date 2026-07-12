@@ -21,7 +21,12 @@ from main import (
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///scopecreep.db"
+
+# Use PostgreSQL on Railway, SQLite locally
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///scopecreep.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -51,6 +56,27 @@ def login():
             return redirect(url_for("index"))
         flash("Invalid email or password.")
     return render_template("login.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email    = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        if not email or not password:
+            flash("Email and password are required.")
+        elif User.query.filter_by(email=email).first():
+            flash("An account with that email already exists.")
+        else:
+            hashed = bcrypt.generate_password_hash(password).decode("utf-8")
+            user = User(email=email, password_hash=hashed)
+            db.session.add(user)
+            db.session.commit()
+            login_user(user)
+            return redirect(url_for("index"))
+    return render_template("register.html")
 
 
 @app.route("/logout")
