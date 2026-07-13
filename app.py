@@ -11,7 +11,7 @@ import os
 from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY, SECRET_KEY
 from models import db, User, ChangeOrder
 from gmail_reader import fetch_recent_emails
-from claude_checker import check_scope_with_claude
+from claude_checker import check_scope_with_claude, draft_ghostwriter_response
 from main import (
     parse_sow, calculate_pricing,
     create_change_order, save_change_order,
@@ -179,6 +179,24 @@ def new_order():
 
     scope_item = request.args.get("scope_item", "")
     return render_template("new_order.html", sow=sow_data, scope_item=scope_item)
+
+
+@app.route("/ghostwrite", methods=["GET", "POST"])
+@login_required
+def ghostwrite():
+    sow_data = session.get("sow")
+    if not sow_data:
+        flash("Load a SOW first.")
+        return redirect(url_for("sow"))
+
+    client_request = request.args.get("client_request", "") or request.form.get("client_request", "")
+    tone = request.form.get("tone", "diplomatic")
+    draft = None
+
+    if client_request:
+        draft = draft_ghostwriter_response(client_request, sow_data, tone)
+
+    return render_template("ghostwriter.html", client_request=client_request, draft=draft, tone=tone, sow=sow_data)
 
 
 @app.route("/delete-order/<int:order_id>", methods=["POST"])

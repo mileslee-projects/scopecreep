@@ -17,8 +17,9 @@
         {% for match in result.matched_excluded %}
           <p style="margin-top:8px;" class="muted">{{ match.item }} — {{ match.confidence }}% confident</p>
         {% endfor %}
-        <div style="margin-top:16px;">
-          <a href="/new-order?scope_item={{ client_request | urlencode }}" class="btn btn-primary">Create Change Order →</a>
+        <div style="margin-top:16px; display:flex; gap:12px;">
+          <a href="/ghostwrite?client_request={{ client_request | urlencode }}" class="btn btn-primary">Draft Response →</a>
+          <a href="/new-order?scope_item={{ client_request | urlencode }}" class="btn btn-secondary">Create Change Order</a>
         </div>
       </div>
     {% elif result.verdict == "in_scope" %}

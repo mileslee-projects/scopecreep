@@ -93,3 +93,52 @@ Respond with JSON only, no other text:
             "matched_excluded": [],
             "matched_in_scope": [],
         }
+
+
+def draft_ghostwriter_response(client_request, sow, tone="diplomatic"):
+    """Draft a professional email response to a scope creep request.
+
+    tone: "diplomatic" | "assertive" | "brief"
+    Returns the drafted email as a string.
+    """
+
+    tone_instructions = {
+        "diplomatic": "warm and collaborative — acknowledge the request positively, explain the scope boundary kindly, and offer a clear path forward",
+        "assertive":  "professional and direct — clearly state the boundary, reference the agreement, and propose next steps without over-apologizing",
+        "brief":      "short and to the point — 3-4 sentences max, no fluff",
+    }
+
+    in_scope_list  = "\n".join(f"- {item}" for item in sow["in_scope"])
+    out_scope_list = "\n".join(f"- {item}" for item in sow["out_of_scope"])
+
+    prompt = f"""You are a ghostwriter helping a freelancer respond to a client who has made an out-of-scope request.
+
+PROJECT: {sow["project_name"]}
+
+IN SCOPE:
+{in_scope_list}
+
+OUT OF SCOPE (excluded):
+{out_scope_list}
+
+CLIENT REQUEST: "{client_request}"
+
+Write a {tone_instructions[tone]} email reply from the freelancer to the client.
+The email should:
+1. Acknowledge the client's request
+2. Explain that this falls outside the agreed scope
+3. Let them know you're happy to handle it as a change order
+4. Keep the relationship intact
+
+Write only the email body (no subject line). Use placeholders like [Client Name] and [Your Name] where appropriate."""
+
+    try:
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text.strip()
+    except Exception as e:
+        print(f"  [Ghostwriter error] {e}")
+        return "Could not generate draft — try again."

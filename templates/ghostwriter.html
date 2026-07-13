@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Draft Client Response</h1>
+
+<div class="card" style="margin-bottom:16px; background:#f0f9ff; border-color:#bae6fd;">
+  <p style="font-size:14px; color:#0369a1; line-height:1.6;">
+    <strong>How to use:</strong> ScopeCreep has detected this request falls outside your agreed SOW.
+    Choose a tone below, then copy the drafted email and paste it into your reply to the client.
+    You can edit the draft before sending — replace <strong>[Client Name]</strong> and <strong>[Your Name]</strong> with real names.
+    When ready, create a formal change order to lock in the extra work and get paid.
+  </p>
+</div>
+
+<div class="card">
+  <p class="muted" style="margin-bottom:16px;">Request: <strong>{{ client_request }}</strong></p>
+
+  <form method="POST">
+    <input type="hidden" name="client_request" value="{{ client_request }}">
+    <label>Tone</label>
+    <div style="display:flex; gap:12px; margin-bottom:16px;">
+      {% for t, label in [("diplomatic", "Diplomatic"), ("assertive", "Assertive"), ("brief", "Brief")] %}
+        <label style="display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer;">
+          <input type="radio" name="tone" value="{{ t }}" {% if tone == t %}checked{% endif %}>
+          {{ label }}
+        </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-secondary" style="margin-bottom:24px;">Regenerate</button>
+  </form>
+
+  {% if draft %}
+    <label>Client's email address</label>
+    <input type="email" id="client-email" placeholder="client@example.com" style="margin-bottom:8px;">
+
+    <label>Drafted email (editable)</label>
+    <textarea id="draft-text" style="min-height:220px;">{{ draft }}</textarea>
+
+    <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap;">
+      <button onclick="openInEmail()" class="btn btn-primary">Open in email app →</button>
+      <button onclick="copyDraft()" class="btn btn-secondary">Copy to clipboard</button>
+      <a href="/new-order?scope_item={{ client_request | urlencode }}" class="btn btn-secondary">Create Change Order</a>
+    </div>
+    <p id="copy-msg" class="muted" style="margin-top:8px; display:none;">Copied!</p>
+    <p class="muted" style="margin-top:8px; font-size:12px;">Tip: clicking "Open in email app" will open Gmail, Outlook, or your default mail app with this draft pre-filled.</p>
+  {% endif %}
+</div>
+
+<script>
+function openInEmail() {
+  const to      = document.getElementById("client-email").value.trim();
+  const body    = document.getElementById("draft-text").value;
+  const subject = "Re: {{ sow.project_name }} — Change Order Request";
+  const mailto  = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+
+function copyDraft() {
+  const text = document.getElementById("draft-text").value;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById("copy-msg");
+    msg.style.display = "block";
+    setTimeout(() => msg.style.display = "none", 2000);
+  });
+}
+</script>
+{% endblock %}
