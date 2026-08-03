@@ -11,7 +11,7 @@ import os
 from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY, SECRET_KEY
 from models import db, User, ChangeOrder
 from gmail_reader import fetch_recent_emails
-from claude_checker import check_scope_with_claude, draft_ghostwriter_response
+from claude_checker import check_scope_with_claude, draft_ghostwriter_response, audit_sow_risk
 from main import (
     parse_sow, calculate_pricing,
     create_change_order, save_change_order,
@@ -89,8 +89,9 @@ def logout():
 # ===== APP ROUTES =====
 
 @app.route("/")
-@login_required
 def index():
+    if not current_user.is_authenticated:
+        return render_template("landing.html")
     orders = ChangeOrder.query.filter_by(user_id=current_user.id)\
                               .order_by(ChangeOrder.created_at.desc()).all()
     history = [o.to_dict() for o in orders]
@@ -179,6 +180,18 @@ def new_order():
 
     scope_item = request.args.get("scope_item", "")
     return render_template("new_order.html", sow=sow_data, scope_item=scope_item)
+
+
+@app.route("/audit", methods=["GET", "POST"])
+@login_required
+def audit():
+    result = None
+    sow_text = ""
+    if request.method == "POST":
+        sow_text = request.form.get("sow_text", "").strip()
+        if sow_text:
+            result = audit_sow_risk(sow_text)
+    return render_template("audit.html", result=result, sow_text=sow_text)
 
 
 @app.route("/ghostwrite", methods=["GET", "POST"])

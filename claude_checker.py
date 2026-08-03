@@ -9,6 +9,10 @@ from settings import ANTHROPIC_API_KEY
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+# Model choices — fast/cheap for high-volume checks, smarter for quality-sensitive tasks.
+FAST_MODEL  = "claude-haiku-4-5-20251001"  # scope checks (runs often, incl. every Gmail email)
+SMART_MODEL = "claude-sonnet-4-6"          # SOW audit + Ghostwriter (lower volume, quality matters)
+
 
 def check_scope_with_claude(request, sow):
     """Check a client request against the SOW using Claude.
@@ -52,7 +56,7 @@ Respond with JSON only, no other text:
 
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=FAST_MODEL,
             max_tokens=300,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -95,6 +99,82 @@ Respond with JSON only, no other text:
         }
 
 
+def audit_sow_risk(sow_text):
+    """Scan a draft SOW for risky/vague language before signing.
+
+    Returns a dict:
+    {
+        score: <0-100>,          # higher = safer / tighter contract
+        summary: "<one sentence>",
+        risks: [
+            {"phrase": "...", "issue": "...", "fix": "...", "severity": "high|medium|low"}
+        ],
+    }
+    """
+
+    prompt = f"""You are a contract risk auditor for freelancers and agencies.
+Analyze this draft Statement of Work (SOW) for language that could lead to scope creep or unpaid work.
+
+DRAFT SOW:
+\"\"\"
+{sow_text}
+\"\"\"
+
+Look for problems like:
+- Vague deliverables ("a complete website", "some designs")
+- Open-ended revisions ("until satisfied", "unlimited revisions")
+- Missing or unclear exclusions
+- Ambiguous timelines or milestones
+- Undefined terms ("as needed", "etc.", "and more")
+
+Give the SOW a safety score from 0-100 (100 = airtight, 0 = dangerously vague).
+
+Respond with JSON only, no other text:
+{{
+  "score": <0-100>,
+  "summary": "<one sentence overall assessment>",
+  "risks": [
+    {{
+      "phrase": "<the exact risky phrase or a short description>",
+      "issue": "<why this is a risk>",
+      "fix": "<a concrete suggested rewrite or addition>",
+      "severity": "high" or "medium" or "low"
+    }}
+  ]
+}}
+
+If the SOW is strong, return few or no risks. List the most important risks first."""
+
+    try:
+        message = client.messages.create(
+            model=SMART_MODEL,
+            max_tokens=1200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        raw = message.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        data = json.loads(raw)
+        return {
+            "score":   data.get("score", 0),
+            "summary": data.get("summary", ""),
+            "risks":   data.get("risks", []),
+        }
+
+    except Exception as e:
+        print(f"  [SOW audit error] {e}")
+        return {
+            "score": None,
+            "summary": "Could not analyze the SOW — try again.",
+            "risks": [],
+        }
+
+
 def draft_ghostwriter_response(client_request, sow, tone="diplomatic"):
     """Draft a professional email response to a scope creep request.
 
@@ -134,7 +214,7 @@ Write only the email body (no subject line). Use placeholders like [Client Name]
 
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=SMART_MODEL,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         )

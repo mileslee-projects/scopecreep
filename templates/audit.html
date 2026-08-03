@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>SOW Risk Auditor</h1>
+
+<div class="card" style="margin-bottom:16px; background:#f0f9ff; border-color:#bae6fd;">
+  <p style="font-size:14px; color:#0369a1; line-height:1.6;">
+    <strong>How to use:</strong> Paste a draft statement of work <em>before you sign it</em>.
+    ScopeCreep scans for vague language, open-ended revisions, and missing exclusions that clients
+    could exploit later — then gives you a safety score and concrete fixes.
+  </p>
+</div>
+
+<div class="card">
+  <form method="POST">
+    <label for="sow_text">Draft SOW</label>
+    <textarea id="sow_text" name="sow_text" placeholder="Paste your statement of work here...">{{ sow_text }}</textarea>
+    <button type="submit" class="btn btn-primary">Audit my SOW</button>
+  </form>
+</div>
+
+{% if result %}
+  {% if result.score is not none %}
+    {% set score = result.score %}
+    {% if score >= 75 %}{% set color = "#059669" %}{% set bg = "#d1fae5" %}{% set grade = "Strong" %}
+    {% elif score >= 50 %}{% set color = "#d97706" %}{% set bg = "#fef3c7" %}{% set grade = "Needs work" %}
+    {% else %}{% set color = "#dc2626" %}{% set bg = "#fee2e2" %}{% set grade = "Risky" %}{% endif %}
+
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:20px;">
+        <div style="width:88px; height:88px; border-radius:50%; background:{{ bg }}; color:{{ color }}; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; flex-shrink:0;">
+          {{ score }}
+        </div>
+        <div>
+          <div style="font-size:18px; font-weight:700; color:{{ color }};">{{ grade }}</div>
+          <p class="muted" style="margin-top:4px;">{{ result.summary }}</p>
+        </div>
+      </div>
+    </div>
+
+    {% if result.risks %}
+      <h2 style="margin-top:8px;">{{ result.risks | length }} issue{{ "s" if result.risks | length != 1 else "" }} found</h2>
+      {% for risk in result.risks %}
+        {% if risk.severity == "high" %}{% set sc = "#dc2626" %}{% set sbg = "#fee2e2" %}
+        {% elif risk.severity == "medium" %}{% set sc = "#d97706" %}{% set sbg = "#fef3c7" %}
+        {% else %}{% set sc = "#6b7280" %}{% set sbg = "#f3f4f6" %}{% endif %}
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <strong style="font-size:15px;">"{{ risk.phrase }}"</strong>
+            <span class="badge" style="background:{{ sbg }}; color:{{ sc }}; text-transform:uppercase; flex-shrink:0;">{{ risk.severity }}</span>
+          </div>
+          <p style="margin-top:10px; font-size:14px; color:#374151;"><strong>Why it's a risk:</strong> {{ risk.issue }}</p>
+          <p style="margin-top:8px; font-size:14px; color:#065f46; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; padding:10px 12px;">
+            <strong>Suggested fix:</strong> {{ risk.fix }}
+          </p>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="card verdict-ok">
+        <strong>✓ No major risks found.</strong>
+        <p style="margin-top:8px;" class="muted">This SOW looks tight. You're good to sign.</p>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card verdict-unclear">
+      <strong>? {{ result.summary }}</strong>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}
