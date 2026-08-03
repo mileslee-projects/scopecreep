@@ -2,6 +2,27 @@
 {% block content %}
 <h1>Dashboard</h1>
 
+{% if history %}
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-value">${{ "%.0f"|format(stats.captured) }}</div>
+    <div class="stat-label">Revenue captured</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${{ "%.0f"|format(stats.pending) }}</div>
+    <div class="stat-label">Pending payment</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total_orders }}</div>
+    <div class="stat-label">Change orders sent</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${{ "%.0f"|format(stats.total_value) }}</div>
+    <div class="stat-label">Total value protected</div>
+  </div>
+</div>
+{% endif %}
+
 {% if not history %}
   <div class="card">
     <p class="muted">No change orders yet. <a href="/sow">Load a SOW</a> to get started.</p>
@@ -25,9 +46,16 @@
           &nbsp;·&nbsp; <a href="{{ order.payment_link }}" target="_blank">Payment link ↗</a>
         {% endif %}
       </span>
-      <form method="POST" action="/delete-order/{{ order.id }}" onsubmit="return confirm('Delete this change order?')">
-        <button type="submit" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px; padding:0;">Delete</button>
-      </form>
+      <span style="display:flex; gap:14px; align-items:center;">
+        {% if status != 'paid' %}
+        <form method="POST" action="/mark-paid/{{ order.id }}">
+          <button type="submit" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:13px; font-weight:500; padding:0;">Mark as paid</button>
+        </form>
+        {% endif %}
+        <form method="POST" action="/delete-order/{{ order.id }}" onsubmit="return confirm('Delete this change order?')">
+          <button type="submit" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px; padding:0;">Delete</button>
+        </form>
+      </span>
     </div>
   </div>
   {% endfor %}

@@ -39,6 +39,11 @@
     .muted { color: #6b7280; font-size: 13px; }
     .row { display: flex; gap: 16px; }
     .row > * { flex: 1; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; }
+    .stat-value { font-size: 26px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
+    .stat-label { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    @media (max-width: 700px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
   </style>
 </head>
 <body>

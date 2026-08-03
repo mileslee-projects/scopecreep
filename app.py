@@ -95,7 +95,15 @@ def index():
     orders = ChangeOrder.query.filter_by(user_id=current_user.id)\
                               .order_by(ChangeOrder.created_at.desc()).all()
     history = [o.to_dict() for o in orders]
-    return render_template("index.html", history=history)
+
+    stats = {
+        "total_orders":    len(orders),
+        "captured":        sum(o.total or 0 for o in orders if o.status == "paid"),
+        "pending":         sum(o.total or 0 for o in orders if (o.status or "pending") == "pending"),
+        "total_value":     sum(o.total or 0 for o in orders),
+    }
+
+    return render_template("index.html", history=history, stats=stats)
 
 
 @app.route("/sow", methods=["GET", "POST"])
@@ -210,6 +218,18 @@ def ghostwrite():
         draft = draft_ghostwriter_response(client_request, sow_data, tone)
 
     return render_template("ghostwriter.html", client_request=client_request, draft=draft, tone=tone, sow=sow_data)
+
+
+@app.route("/mark-paid/<int:order_id>", methods=["POST"])
+@login_required
+def mark_paid(order_id):
+    order = ChangeOrder.query.filter_by(id=order_id, user_id=current_user.id).first()
+    if order:
+        order.status = "paid"
+        order.status_updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f"Marked as paid: ${order.total:,.2f} captured.")
+    return redirect(url_for("index"))
 
 
 @app.route("/delete-order/<int:order_id>", methods=["POST"])
