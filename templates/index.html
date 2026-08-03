@@ -6,11 +6,11 @@
 {% if history %}
 <div class="stats-row">
   <div class="stat-card">
-    <div class="stat-value">${{ "%.0f"|format(stats.captured) }}</div>
+    <div class="stat-value">${{ "{:,.0f}".format(stats.captured) }}</div>
     <div class="stat-label">Revenue captured</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">${{ "%.0f"|format(stats.pending) }}</div>
+    <div class="stat-value">${{ "{:,.0f}".format(stats.pending) }}</div>
     <div class="stat-label">Pending payment</div>
   </div>
   <div class="stat-card">
@@ -18,7 +18,7 @@
     <div class="stat-label">Change orders sent</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">${{ "%.0f"|format(stats.total_value) }}</div>
+    <div class="stat-value">${{ "{:,.0f}".format(stats.total_value) }}</div>
     <div class="stat-label">Total value protected</div>
   </div>
 </div>
@@ -39,12 +39,22 @@
       {% set status = order.status | default('pending') %}
       <span class="badge badge-{{ status }}">{{ status.upper() }}</span>
     </div>
+    {% if order.client_message %}
+    <div style="margin-top:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 14px;">
+      <div style="font-size:12px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.3px;">💬 Client responded</div>
+      <p style="margin-top:6px; font-size:14px; color:#374151;">"{{ order.client_message }}"</p>
+      {% if order.client_message_at %}<p class="muted" style="margin-top:4px; font-size:12px;">{{ order.client_message_at }}</p>{% endif %}
+    </div>
+    {% endif %}
     <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
       <span class="muted">
-        ${{ "%.2f"|format(order.total) }}
+        ${{ "{:,.2f}".format(order.total) }}
         &nbsp;·&nbsp; {{ order.created_at }}
         {% if order.payment_link %}
           &nbsp;·&nbsp; <a href="{{ order.payment_link }}" target="_blank">Payment link ↗</a>
+        {% endif %}
+        {% if order.public_token %}
+          &nbsp;·&nbsp; <a href="/order/{{ order.public_token }}" target="_blank">Client view ↗</a>
         {% endif %}
       </span>
       <span style="display:flex; gap:14px; align-items:center;">

@@ -6,6 +6,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from datetime import datetime
+from sqlalchemy import inspect, text
+import secrets
 import os
 
 from settings import SENDGRID_API_KEY, FROM_EMAIL, STRIPE_SECRET_KEY, SECRET_KEY
@@ -39,6 +41,30 @@ login_manager.login_message = "Please log in to continue."
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+def ensure_schema():
+    """Lightweight migration: add new ChangeOrder columns to an existing
+    database if they're missing, and backfill portal tokens. Works on both
+    SQLite (local) and PostgreSQL (Railway) for simple ADD COLUMN operations."""
+    db.create_all()
+    inspector = inspect(db.engine)
+    existing = {c["name"] for c in inspector.get_columns("change_order")}
+    new_columns = {
+        "public_token":      "VARCHAR(48)",
+        "client_message":    "TEXT",
+        "client_message_at": "TIMESTAMP",
+    }
+    with db.engine.begin() as conn:
+        for name, coltype in new_columns.items():
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE change_order ADD COLUMN {name} {coltype}"))
+    # Backfill tokens for any orders created before the portal existed
+    for order in ChangeOrder.query.filter(
+        (ChangeOrder.public_token.is_(None)) | (ChangeOrder.public_token == "")
+    ).all():
+        order.public_token = secrets.token_urlsafe(24)
+    db.session.commit()
 
 
 # ===== AUTH ROUTES =====
@@ -181,6 +207,10 @@ def new_order():
         filename     = save_change_order(order_text, client_name)
         payment_link = create_stripe_payment_link(pricing["total"], scope_item)
 
+        # Unguessable public link the client uses to view + respond to the order
+        public_token = secrets.token_urlsafe(24)
+        portal_link  = url_for("client_order", token=public_token, _external=True)
+
         send_change_order_email(
             client_email=client_email,
             client_name=client_name,
@@ -188,6 +218,7 @@ def new_order():
             scope_item=scope_item,
             total=pricing["total"],
             payment_link=payment_link,
+            portal_link=portal_link,
         )
 
         order = ChangeOrder(
@@ -201,6 +232,7 @@ def new_order():
             status       = "pending",
             created_at   = datetime.utcnow(),
             status_updated_at = datetime.utcnow(),
+            public_token = public_token,
         )
         db.session.add(order)
         db.session.commit()
@@ -265,6 +297,25 @@ def delete_order(order_id):
     return redirect(url_for("index"))
 
 
+# ===== PUBLIC CLIENT PORTAL (no login) =====
+
+@app.route("/order/<token>")
+def client_order(token):
+    order = ChangeOrder.query.filter_by(public_token=token).first_or_404()
+    return render_template("client_order.html", order=order)
+
+
+@app.route("/order/<token>/respond", methods=["POST"])
+def client_respond(token):
+    order = ChangeOrder.query.filter_by(public_token=token).first_or_404()
+    message = request.form.get("message", "").strip()
+    if message:
+        order.client_message = message
+        order.client_message_at = datetime.utcnow()
+        db.session.commit()
+    return redirect(url_for("client_order", token=token))
+
+
 @app.route("/gmail")
 @login_required
 def gmail():
@@ -299,7 +350,11 @@ def gmail():
     return render_template("gmail.html", flagged=flagged, review=review, total_scanned=len(emails))
 
 
+# Initialize + migrate the database on startup.
+# Placed at module level so it runs under gunicorn (Railway) on import,
+# not just when running app.py directly.
+with app.app_context():
+    ensure_schema()
+
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()  # creates scopecreep.db if it doesn't exist
     app.run(debug=True)

@@ -321,12 +321,18 @@ def create_stripe_payment_link(amount, description):
         return None
 
 
-def send_change_order_email(client_email, client_name, project_name, scope_item, total, payment_link):
+def send_change_order_email(client_email, client_name, project_name, scope_item, total, payment_link, portal_link=None):
     """Send a change order email to the client via SendGrid.
     Returns True if sent successfully, False otherwise."""
     subject = f"Change Order Request — {project_name}"
 
     pay_button = f'<a href="{payment_link}" style="background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Approve & Pay ${total:,.2f}</a>' if payment_link else f"<p>Total due: ${total:,.2f}</p>"
+
+    portal_line = (
+        f'<p style="margin-top:16px;">Have a question about this? '
+        f'<a href="{portal_link}">View the change order and respond here</a>.</p>'
+        if portal_link else ""
+    )
 
     html = f"""
     <p>Hi {client_name},</p>
@@ -337,7 +343,7 @@ def send_change_order_email(client_email, client_name, project_name, scope_item,
     <p><strong>Total: ${total:,.2f}</strong></p>
     <p>Please approve and pay to proceed:</p>
     <p>{pay_button}</p>
-    <p>Reply to this email if you'd like to discuss.</p>
+    {portal_line}
     <p>— Miles</p>
     """
 

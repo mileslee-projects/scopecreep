@@ -34,6 +34,11 @@ class ChangeOrder(db.Model):
     created_at        = db.Column(db.DateTime, default=datetime.utcnow)
     status_updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Client response portal
+    public_token      = db.Column(db.String(48), unique=True)   # unguessable link for the client
+    client_message    = db.Column(db.Text)                      # what the client wrote back
+    client_message_at = db.Column(db.DateTime)
+
     def to_dict(self):
         """Convert to dict so templates don't need to change much."""
         return {
@@ -47,4 +52,7 @@ class ChangeOrder(db.Model):
             "status":            self.status,
             "created_at":        self.created_at.strftime("%Y-%m-%d %H:%M") if self.created_at else "",
             "status_updated_at": self.status_updated_at.strftime("%Y-%m-%d %H:%M") if self.status_updated_at else "",
+            "public_token":      self.public_token,
+            "client_message":    self.client_message,
+            "client_message_at": self.client_message_at.strftime("%Y-%m-%d %H:%M") if self.client_message_at else "",
         }

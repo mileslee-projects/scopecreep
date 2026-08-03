@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Change Order — {{ order.client_name }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; padding: 40px 20px; }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    .brand { text-align: center; font-weight: 800; font-size: 16px; color: #64748b; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: #2563eb; }
+    .card { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 32px; box-shadow: 0 4px 12px rgba(15,23,42,0.06); margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .sub { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+    .label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 6px; }
+    .scope-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 8px; padding: 16px; color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+    .total { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 24px; }
+    .total span { font-size: 14px; font-weight: 500; color: #64748b; }
+    .btn { display: inline-block; padding: 14px 24px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; text-decoration: none; text-align: center; }
+    .btn-pay { background: #2563eb; color: #fff; width: 100%; }
+    .btn-pay:hover { background: #1d4ed8; }
+    .status-paid { background: #dbeafe; color: #1e40af; padding: 14px; border-radius: 8px; text-align: center; font-weight: 700; }
+    .divider { display: flex; align-items: center; gap: 12px; color: #94a3b8; font-size: 13px; margin: 24px 0; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #e2e8f0; }
+    .q-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .q-sub { color: #64748b; font-size: 14px; margin-bottom: 14px; }
+    textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; margin-bottom: 12px; }
+    textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .btn-send { background: #0f172a; color: #fff; }
+    .btn-send:hover { background: #1e293b; }
+    .sent-note { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; padding: 14px 16px; border-radius: 8px; font-size: 14px; }
+    .sent-note strong { display: block; margin-bottom: 4px; }
+    .footer { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span>ScopeCreep</div>
+
+    <div class="card">
+      <h1>Change Order</h1>
+      <p class="sub">Prepared for {{ order.client_name }}</p>
+
+      <div class="label">Requested work</div>
+      <div class="scope-box">{{ order.scope_item }}</div>
+
+      <div class="label">Amount</div>
+      <div class="total">${{ "{:,.2f}".format(order.total) }} <span>USD</span></div>
+
+      {% if order.status == "paid" %}
+        <div class="status-paid">✓ Paid — thank you!</div>
+      {% elif order.payment_link %}
+        <a href="{{ order.payment_link }}" class="btn btn-pay" target="_blank">Approve &amp; Pay ${{ "{:,.2f}".format(order.total) }}</a>
+      {% endif %}
+    </div>
+
+    {% if order.status != "paid" %}
+    <div class="card">
+      {% if order.client_message %}
+        <div class="sent-note">
+          <strong>Your message was sent ✓</strong>
+          "{{ order.client_message }}"
+        </div>
+        <p class="q-sub" style="margin-top:14px; margin-bottom:0;">We'll be in touch shortly. You can still approve and pay above at any time.</p>
+      {% else %}
+        <div class="q-title">Have a question about this?</div>
+        <p class="q-sub">If you think this work is already covered, let us know why and we'll take a look.</p>
+        <form method="POST" action="/order/{{ order.public_token }}/respond">
+          <textarea name="message" placeholder="e.g. I thought the blog was part of the original homepage build..." required></textarea>
+          <button type="submit" class="btn btn-send">Send message</button>
+        </form>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="footer">Powered by ScopeCreep</div>
+  </div>
+</body>
+</html>
