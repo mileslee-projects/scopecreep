@@ -79,6 +79,28 @@ def register():
     return render_template("register.html")
 
 
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email        = request.form.get("email", "").strip().lower()
+        new_password = request.form.get("new_password", "")
+        if not email or not new_password:
+            flash("Email and new password are required.")
+        elif len(new_password) < 8:
+            flash("Password must be at least 8 characters.")
+        else:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.password_hash = bcrypt.generate_password_hash(new_password).decode("utf-8")
+                db.session.commit()
+            # Always show the same message so we don't reveal which emails exist
+            flash("If an account exists for that email, the password has been reset. You can now log in.")
+            return redirect(url_for("login"))
+    return render_template("forgot_password.html")
+
+
 @app.route("/logout")
 @login_required
 def logout():
