@@ -39,11 +39,24 @@ IN SCOPE:
 OUT OF SCOPE (excluded):
 {out_scope_list}
 
-CLIENT REQUEST: "{request}"
+MESSAGE TO ANALYZE: "{request}"
 
-Determine if this request is scope creep, in scope, or unclear.
-Only flag as scope_creep if the request clearly asks for something in the excluded list or something not covered anywhere in the SOW.
-Do NOT flag generic emails, newsletters, or unrelated content as scope creep.
+STEP 1 — Is this even a client work request?
+First decide whether this message is a genuine request from a CLIENT asking the freelancer to DO project work.
+The following are NOT client work requests and must ALWAYS be classified "in_scope" (never scope_creep), regardless of keywords they happen to contain:
+- Automated or transactional emails (verification codes, password resets, receipts, order/shipping confirmations, calendar invites)
+- Newsletters, marketing, promotions, or notifications from apps and services
+- Personal email unrelated to this project
+- Anything not written by a human client about work on THIS project
+
+If the message is not a genuine client work request, return "in_scope" with a reason saying it's not a client request. Do not match it to any scope items.
+
+STEP 2 — Only if it IS a genuine client work request, judge scope:
+- "scope_creep" if it clearly asks for something in the excluded list, or work not covered anywhere in the SOW
+- "in_scope" if it's covered by the in-scope items
+- "unclear" if you genuinely can't tell
+
+Be conservative: when in doubt about whether something is a real client request, choose "in_scope".
 
 Respond with JSON only, no other text:
 {{

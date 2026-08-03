@@ -13,6 +13,11 @@ from googleapiclient.discovery import build
 # Read-only access to Gmail is all we need
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
+# Absolute paths so these files resolve no matter what directory Flask runs from
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+CREDS_FILE  = os.path.join(BASE_DIR, "credentials.json")
+TOKEN_FILE  = os.path.join(BASE_DIR, "token.json")
+
 
 def get_gmail_service():
     """Authenticate with Gmail and return a service object.
@@ -20,17 +25,33 @@ def get_gmail_service():
     creds = None
 
     # Reuse existing token if we have one
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
     # If no valid token, go through the OAuth flow
     if not creds or not creds.valid:
+        refreshed = False
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            try:
+                creds.refresh(Request())
+                refreshed = True
+            except Exception:
+                # Refresh token dead/revoked (common in OAuth "testing" mode) —
+                # delete the stale token and fall back to a fresh login.
+                creds = None
+                if os.path.exists(TOKEN_FILE):
+                    os.remove(TOKEN_FILE)
+
+        if not refreshed:
+            if not os.path.exists(CREDS_FILE):
+                raise FileNotFoundError(
+                    "credentials.json not found. Gmail scan only works locally "
+                    "with your Google OAuth credentials file in the project folder."
+                )
+            flow = InstalledAppFlow.from_client_secrets_file(CREDS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as token:
+
+        with open(TOKEN_FILE, "w") as token:
             token.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)

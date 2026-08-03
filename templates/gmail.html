@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Gmail Scan</h1>
-<p class="muted" style="margin-bottom:24px;">Scanned {{ total_scanned }} recent emails — {{ flagged | length }} flagged for potential scope creep.</p>
+<p class="subtitle">ScopeCreep scanned your recent inbox for out-of-scope requests.</p>
+<p class="muted" style="margin-bottom:24px;">
+  Scanned {{ total_scanned }} recent emails — {{ flagged | length }} flagged, {{ review | length }} to review.
+</p>
 
-{% if not flagged %}
-  <div class="card">
-    <p class="muted">No scope creep detected in your recent inbox.</p>
+{% if not flagged and not review %}
+  <div class="card verdict-ok">
+    <strong>✓ You're all clear.</strong>
+    <p style="margin-top:8px;" class="muted">No scope creep or borderline requests in your recent inbox.</p>
   </div>
-{% else %}
+{% endif %}
+
+{% if flagged %}
+  <h2>Flagged for scope creep</h2>
   {% for item in flagged %}
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -18,6 +25,7 @@
       <span class="badge badge-declined">Scope Creep</span>
     </div>
     <p style="margin-top:12px; font-size:14px; color:#374151;">{{ item.email.snippet }}</p>
+    {% if item.reason %}<p style="margin-top:8px; font-size:13px; color:#991b1b;">{{ item.reason }}</p>{% endif %}
     <div style="margin-top:12px;">
       {% for match in item.matches %}
         <span style="font-size:12px; color:#6b7280;">⚠ {{ match.item }} ({{ match.confidence }}%)</span><br>
@@ -25,6 +33,28 @@
     </div>
     <div style="margin-top:16px;">
       <a href="/new-order?scope_item={{ item.email.subject | urlencode }}" class="btn btn-primary">Create Change Order →</a>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+
+{% if review %}
+  <h2>Needs your review</h2>
+  <p class="muted" style="margin-top:-6px; margin-bottom:14px;">ScopeCreep wasn't sure about these. Take a quick look so nothing slips through.</p>
+  {% for item in review %}
+  <div class="card" style="border-color:#fde68a; background:#fffdf5;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <strong>{{ item.email.subject }}</strong>
+        <p class="muted" style="margin-top:4px;">{{ item.email.sender }}</p>
+      </div>
+      <span class="badge badge-pending">Review</span>
+    </div>
+    <p style="margin-top:12px; font-size:14px; color:#374151;">{{ item.email.snippet }}</p>
+    {% if item.reason %}<p style="margin-top:8px; font-size:13px; color:#92400e;">{{ item.reason }}</p>{% endif %}
+    <div style="margin-top:16px; display:flex; gap:12px;">
+      <a href="/check" class="btn btn-secondary">Check it manually</a>
+      <a href="/new-order?scope_item={{ item.email.subject | urlencode }}" class="btn btn-secondary">Create Change Order</a>
     </div>
   </div>
   {% endfor %}

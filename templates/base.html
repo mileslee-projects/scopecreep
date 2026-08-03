@@ -5,63 +5,119 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScopeCreep</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; }
-    nav { background: #111827; padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 52px; }
-    nav a { color: #9ca3af; text-decoration: none; font-size: 14px; }
-    nav a:hover, nav a.active { color: white; }
-    nav .brand { color: white; font-weight: 700; font-size: 16px; margin-right: 16px; }
-    .container { max-width: 800px; margin: 40px auto; padding: 0 24px; }
-    h1 { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
-    h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
-    .card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
-    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #374151; }
-    input[type=text], input[type=email], input[type=number], textarea {
-      width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
-      font-size: 14px; margin-bottom: 16px; font-family: inherit;
+    :root {
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --ink: #0f172a;
+      --gray: #64748b;
+      --line: #e5e7eb;
+      --bg: #f8fafc;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+    /* NAV */
+    nav {
+      background: white; border-bottom: 1px solid var(--line);
+      padding: 0 28px; display: flex; align-items: center; gap: 4px; height: 58px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    nav .brand {
+      color: var(--ink); font-weight: 800; font-size: 17px; margin-right: 24px;
+      display: flex; align-items: center; gap: 8px; text-decoration: none;
+    }
+    nav .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); display: inline-block; }
+    nav a.navlink {
+      color: var(--gray); text-decoration: none; font-size: 14px; font-weight: 500;
+      padding: 8px 12px; border-radius: 6px; transition: all .12s ease;
+    }
+    nav a.navlink:hover { color: var(--ink); background: #f1f5f9; }
+    nav a.navlink.active { color: var(--blue); background: #eff6ff; }
+    nav .spacer { margin-left: auto; }
+    nav .user-email { font-size: 13px; color: var(--gray); margin-right: 12px; }
+    nav a.logout { color: var(--gray); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 6px; }
+    nav a.logout:hover { color: #dc2626; background: #fef2f2; }
+
+    .container { max-width: 820px; margin: 40px auto; padding: 0 24px; }
+    h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+    h1 + .subtitle { color: var(--gray); font-size: 15px; margin-bottom: 24px; }
+    h2 { font-size: 18px; font-weight: 700; margin: 24px 0 14px; }
+
+    .card {
+      background: white; border: 1px solid var(--line); border-radius: 12px; padding: 24px;
+      margin-bottom: 16px; box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    }
+
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #334155; }
+    input[type=text], input[type=email], input[type=number], input[type=password], textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 14px; margin-bottom: 16px; font-family: inherit; transition: border .12s ease, box-shadow .12s ease;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
     textarea { min-height: 160px; resize: vertical; }
     input[type=checkbox] { margin-right: 8px; }
-    .btn { display: inline-block; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; }
-    .btn-primary { background: #2563eb; color: white; }
-    .btn-primary:hover { background: #1d4ed8; }
-    .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
-    .btn-secondary:hover { background: #e5e7eb; }
-    .flash { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; padding: 12px 16px; border-radius: 6px; margin-bottom: 24px; font-size: 14px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+
+    .btn {
+      display: inline-block; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; text-decoration: none; transition: all .12s ease;
+    }
+    .btn-primary, .btn-primary:visited { background: var(--blue); color: #ffffff; }
+    .btn-primary:hover { background: var(--blue-dark); color: #ffffff; }
+    .btn-secondary, .btn-secondary:visited { background: white; color: #334155; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f8fafc; color: #334155; }
+
+    .flash {
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .flash-success { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; }
+    .flash-success::before { content: "✓"; font-weight: 700; }
+    .flash-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+    .flash-error::before { content: "⚠"; font-weight: 700; }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
     .badge-pending  { background: #fef3c7; color: #92400e; }
     .badge-approved { background: #d1fae5; color: #065f46; }
     .badge-declined { background: #fee2e2; color: #991b1b; }
     .badge-paid     { background: #dbeafe; color: #1e40af; }
-    .verdict-creep  { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; padding: 16px; margin-top: 16px; }
-    .verdict-ok     { background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; padding: 16px; margin-top: 16px; }
-    .verdict-unclear{ background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 16px; margin-top: 16px; }
-    .muted { color: #6b7280; font-size: 13px; }
+
+    .verdict-creep  { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 18px; margin-top: 16px; }
+    .verdict-ok     { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 18px; margin-top: 16px; }
+    .verdict-unclear{ background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 18px; margin-top: 16px; }
+
+    .muted { color: var(--gray); font-size: 13px; }
     .row { display: flex; gap: 16px; }
     .row > * { flex: 1; }
+
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; }
-    .stat-value { font-size: 26px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-    .stat-label { font-size: 13px; color: #6b7280; margin-top: 4px; }
-    @media (max-width: 700px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 20px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .stat-value { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; }
+    .stat-label { font-size: 13px; color: var(--gray); margin-top: 4px; }
+    @media (max-width: 700px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      nav { padding: 0 16px; gap: 0; overflow-x: auto; }
+      nav .user-email { display: none; }
+    }
   </style>
 </head>
 <body>
   <nav>
-    <span class="brand">ScopeCreep</span>
-    <a href="/">Dashboard</a>
-    <a href="/sow">Load SOW</a>
-    <a href="/audit">SOW Risk Auditor</a>
-    <a href="/check">Check Request</a>
-    <a href="/new-order">New Change Order</a>
-    <a href="/gmail">Gmail Scan</a>
-    <a href="/logout" style="margin-left:auto;">Log out</a>
+    <a href="/" class="brand"><span class="dot"></span>ScopeCreep</a>
+    <a href="/" class="navlink {{ 'active' if request.path == '/' }}">Dashboard</a>
+    <a href="/sow" class="navlink {{ 'active' if request.path == '/sow' }}">Load SOW</a>
+    <a href="/audit" class="navlink {{ 'active' if request.path == '/audit' }}">SOW Risk Auditor</a>
+    <a href="/check" class="navlink {{ 'active' if request.path == '/check' }}">Check Request</a>
+    <a href="/new-order" class="navlink {{ 'active' if request.path == '/new-order' }}">New Change Order</a>
+    <a href="/gmail" class="navlink {{ 'active' if request.path == '/gmail' }}">Gmail Scan</a>
+    <span class="spacer"></span>
+    {% if current_user.is_authenticated %}<span class="user-email">{{ current_user.email }}</span>{% endif %}
+    <a href="/logout" class="logout">Log out</a>
   </nav>
   <div class="container">
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        {% for msg in messages %}
-          <div class="flash">{{ msg }}</div>
+        {% for category, msg in messages %}
+          <div class="flash flash-{{ 'error' if category == 'error' else 'success' }}">{{ msg }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}

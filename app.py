@@ -54,7 +54,7 @@ def login():
         if user and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user)
             return redirect(url_for("index"))
-        flash("Invalid email or password.")
+        flash("Invalid email or password.", "error")
     return render_template("login.html")
 
 
@@ -66,9 +66,9 @@ def register():
         email    = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         if not email or not password:
-            flash("Email and password are required.")
+            flash("Email and password are required.", "error")
         elif User.query.filter_by(email=email).first():
-            flash("An account with that email already exists.")
+            flash("An account with that email already exists.", "error")
         else:
             hashed = bcrypt.generate_password_hash(password).decode("utf-8")
             user = User(email=email, password_hash=hashed)
@@ -87,9 +87,9 @@ def forgot_password():
         email        = request.form.get("email", "").strip().lower()
         new_password = request.form.get("new_password", "")
         if not email or not new_password:
-            flash("Email and new password are required.")
+            flash("Email and new password are required.", "error")
         elif len(new_password) < 8:
-            flash("Password must be at least 8 characters.")
+            flash("Password must be at least 8 characters.", "error")
         else:
             user = User.query.filter_by(email=email).first()
             if user:
@@ -147,7 +147,7 @@ def sow():
 def check():
     sow_data = session.get("sow")
     if not sow_data:
-        flash("Load a SOW first.")
+        flash("Load a SOW first.", "error")
         return redirect(url_for("sow"))
 
     result = None
@@ -165,7 +165,7 @@ def check():
 def new_order():
     sow_data = session.get("sow")
     if not sow_data:
-        flash("Load a SOW first.")
+        flash("Load a SOW first.", "error")
         return redirect(url_for("sow"))
 
     if request.method == "POST":
@@ -229,7 +229,7 @@ def audit():
 def ghostwrite():
     sow_data = session.get("sow")
     if not sow_data:
-        flash("Load a SOW first.")
+        flash("Load a SOW first.", "error")
         return redirect(url_for("sow"))
 
     client_request = request.args.get("client_request", "") or request.form.get("client_request", "")
@@ -270,16 +270,17 @@ def delete_order(order_id):
 def gmail():
     sow_data = session.get("sow")
     if not sow_data:
-        flash("Load a SOW first.")
+        flash("Load a SOW first.", "error")
         return redirect(url_for("sow"))
 
     try:
         emails = fetch_recent_emails()
     except Exception as e:
-        flash(f"Gmail error: {e}")
+        flash(f"Gmail error: {e}", "error")
         return redirect(url_for("index"))
 
-    flagged = []
+    flagged = []   # confident scope creep
+    review  = []   # borderline / unclear — surface so nothing slips through
     for email in emails:
         text = email["subject"] + " " + email["body"]
         result = check_scope_with_claude(text, sow_data)
@@ -287,9 +288,15 @@ def gmail():
             flagged.append({
                 "email": email,
                 "matches": result["matched_excluded"],
+                "reason": result.get("reason", ""),
+            })
+        elif result["verdict"] == "unclear":
+            review.append({
+                "email": email,
+                "reason": result.get("reason", ""),
             })
 
-    return render_template("gmail.html", flagged=flagged, total_scanned=len(emails))
+    return render_template("gmail.html", flagged=flagged, review=review, total_scanned=len(emails))
 
 
 if __name__ == "__main__":
