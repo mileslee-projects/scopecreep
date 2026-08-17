@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Gmail Scan</h1>
-<p class="subtitle">ScopeCreep scanned your recent inbox for out-of-scope requests.</p>
+<p class="subtitle">Scopeline scanned your recent inbox for out-of-scope requests.</p>
 <p class="muted" style="margin-bottom:24px;">
   Scanned {{ total_scanned }} recent emails — {{ flagged | length }} flagged, {{ review | length }} to review.
 </p>
@@ -40,7 +40,7 @@
 
 {% if review %}
   <h2>Needs your review</h2>
-  <p class="muted" style="margin-top:-6px; margin-bottom:14px;">ScopeCreep wasn't sure about these. Take a quick look so nothing slips through.</p>
+  <p class="muted" style="margin-top:-6px; margin-bottom:14px;">Scopeline wasn't sure about these. Take a quick look so nothing slips through.</p>
   {% for item in review %}
   <div class="card" style="border-color:#fde68a; background:#fffdf5;">
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
